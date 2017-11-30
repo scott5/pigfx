@@ -35,15 +35,14 @@ unsigned StartKernelTimer (unsigned nHzDelay,	// in HZ units (see "system config
 			   TKernelTimerHandler *pHandler,
 			   void *pParam, void *pContext)	// handed over to the timer handler
 {
-    nHzDelay = nHzDelay * HZ;
-    return attach_timer_handler( nHzDelay, pHandler, pParam, pContext );
+    return attach_timer_handler(nHzDelay * 1000/HZ, pHandler, pParam, pContext );
 }
 
 
-void CancelKernelTimer (__attribute__((unused)) unsigned hTimer)
+void CancelKernelTimer (unsigned hTimer)
 {
-    // NOT IMPLEMENTED
     //ee_printf("* CancelKernelTimer *\n");
+  detach_timer_handler(hTimer);
 }
 
 
@@ -87,6 +86,12 @@ void uspi_assertion_failed (const char *pExpr, const char *pFile, unsigned nLine
 
 void DebugHexdump (const void *pBuffer, unsigned nBufLen, const char *pSource /* = 0 */)
 {
-    ee_printf("Memory dump of %s:\n", pSource );
+  ee_printf("Memory dump of %s:\n", pSource );
     uart_dump_mem( (unsigned char*)pBuffer, (unsigned char*)( pBuffer ) + nBufLen );
+}
+
+
+int raise(int signum)
+{
+  return signum;
 }
