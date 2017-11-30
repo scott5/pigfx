@@ -24,18 +24,17 @@
 #include <uspi/assert.h>
 #include <uspios.h>
 
-//#define REPEAT_ENABLE					// does not work well with any Keyboard
+#define REPEAT_ENABLE
 
-#define MSEC2HZ(msec)		((msec) * HZ / 1000)
-
-#define REPEAT_DELAY		MSEC2HZ (400)
-#define REPEAT_RATE		MSEC2HZ (80)
+#define MSEC2HZ(msec)           ((msec) * HZ / 1000)
+#define REPEAT_DELAY		MSEC2HZ(500)
+#define REPEAT_RATE		MSEC2HZ(40)
 
 static unsigned s_nDeviceNumber = 1;
 
 static const char FromUSBKbd[] = "usbkbd";
 
-static void USBKeyboardDeviceGenerateKeyEvent (TUSBKeyboardDevice *pThis, u8 ucPhyCode);
+static char USBKeyboardDeviceGenerateKeyEvent (TUSBKeyboardDevice *pThis, u8 ucPhyCode);
 static boolean USBKeyboardDeviceStartRequest (TUSBKeyboardDevice *pThis);
 static void USBKeyboardDeviceCompletionRoutine (TUSBRequest *pURB, void *pParam, void *pContext);
 static u8 USBKeyboardDeviceGetModifiers (TUSBKeyboardDevice *pThis);
@@ -211,8 +210,9 @@ void USBKeyboardDeviceRegisterKeyStatusHandlerRaw (TUSBKeyboardDevice *pThis, TK
 	pThis->m_pKeyStatusHandlerRaw = pKeyStatusHandlerRaw;
 }
 
-void USBKeyboardDeviceGenerateKeyEvent (TUSBKeyboardDevice *pThis, u8 ucPhyCode)
+char USBKeyboardDeviceGenerateKeyEvent (TUSBKeyboardDevice *pThis, u8 ucPhyCode)
 {
+  char c = 0;
 	assert (pThis != 0);
 
 	const char *pKeyString;
@@ -262,11 +262,14 @@ void USBKeyboardDeviceGenerateKeyEvent (TUSBKeyboardDevice *pThis, u8 ucPhyCode)
 		{
 			if (pThis->m_pKeyPressedHandler != 0)
 			{
-				(*pThis->m_pKeyPressedHandler) (pKeyString);
+			  c = pKeyString[0];
+			  (*pThis->m_pKeyPressedHandler) (pKeyString);
 			}
 		}
 		break;
 	}
+
+	return c;
 }
 
 boolean USBKeyboardDeviceStartRequest (TUSBKeyboardDevice *pThis)
@@ -315,15 +318,18 @@ void USBKeyboardDeviceCompletionRoutine (TUSBRequest *pURB, void *pParam, void *
 			
 			if (ucPhyCode != 0)
 			{
-				USBKeyboardDeviceGenerateKeyEvent (pThis, ucPhyCode);
+				int c = USBKeyboardDeviceGenerateKeyEvent (pThis, ucPhyCode);
 #ifdef REPEAT_ENABLE
 				if (pThis->m_hTimer != 0)
 				{
 					CancelKernelTimer (pThis->m_hTimer);
 				}
 
-				pThis->m_hTimer = StartKernelTimer (REPEAT_DELAY, USBKeyboardDeviceTimerHandler, 0, pThis);
-				assert (pThis->m_hTimer != 0);
+				if( c!=0 && pThis->m_pKeyPressedHandler!=0 )
+				  {
+				    pThis->m_hTimer = StartKernelTimer(REPEAT_DELAY, USBKeyboardDeviceTimerHandler, (void *) c, pThis);
+				    assert (pThis->m_hTimer != 0);
+				  }
 #endif
 			}
 			else if (pThis->m_hTimer != 0)
@@ -367,16 +373,19 @@ u8 USBKeyboardDeviceGetKeyCode (TUSBKeyboardDevice *pThis)
 
 void USBKeyboardDeviceTimerHandler (unsigned hTimer, void *pParam, void *pContext)
 {
+  int c = (int) pParam;
 	TUSBKeyboardDevice *pThis = (TUSBKeyboardDevice *) pContext;
 	assert (pThis != 0);
 
-	assert (hTimer == pThis->m_hTimer);
+	//assert (hTimer == pThis->m_hTimer);
 
-	if (pThis->m_ucLastPhyCode != 0)
+	//if (pThis!=0 && hTimer==pThis->m_hTimer && pThis->m_ucLastPhyCode != 0)
 	{
-		USBKeyboardDeviceGenerateKeyEvent (pThis, pThis->m_ucLastPhyCode);
+	char s[2] = {c, 0};
+	(*pThis->m_pKeyPressedHandler) (s);
+	  //USBKeyboardDeviceGenerateKeyEvent (pThis, pThis->m_ucLastPhyCode);
 
-		pThis->m_hTimer = StartKernelTimer (REPEAT_RATE, USBKeyboardDeviceTimerHandler, 0, pThis);
+	pThis->m_hTimer = StartKernelTimer (REPEAT_RATE, USBKeyboardDeviceTimerHandler, (void *) c, pThis);
 		assert (pThis->m_hTimer != 0);
 	}
 }
