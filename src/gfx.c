@@ -4,6 +4,8 @@
 #include "dma.h"
 #include "utils.h"
 
+#define BORDER_TOP_BOTTOM 8
+
 extern unsigned char G_FONT_GLYPHS;
 static unsigned char* FNT = &G_FONT_GLYPHS;
 
@@ -81,11 +83,11 @@ void gfx_set_env( void* p_framebuffer, unsigned int width, unsigned int height, 
 {
     dma_init();
 
-    ctx.pfb = p_framebuffer;
+    ctx.pfb = p_framebuffer + (BORDER_TOP_BOTTOM*pitch);
     ctx.W = width;
-    ctx.H = height;
+    ctx.H = height - (BORDER_TOP_BOTTOM*2);
     ctx.Pitch = pitch;
-    ctx.size = size;
+    ctx.size = size - (BORDER_TOP_BOTTOM*2*pitch);
 
     ctx.term.WIDTH = ctx.W / 8;
     ctx.term.HEIGHT= ctx.H / 8;
@@ -230,20 +232,19 @@ void gfx_fill_rect_dma( unsigned int x, unsigned int y, unsigned int width, unsi
 
 void gfx_fill_rect( unsigned int x, unsigned int y, unsigned int width, unsigned int height )
 {
+  if( x >= ctx.W || y >= ctx.H )
+    return;
+
+  if( x+width > ctx.W )
+    width = ctx.W-x;
+
+  if( y+height > ctx.H )
+    height = ctx.H-y;
+
 #if ENABLED(GFX_USE_DMA)
     gfx_fill_rect_dma( x, y, width, height );
     dma_execute_queue();
 #else
-    if( x >= ctx.W || y >= ctx.H )
-        return;
-
-    if( x+width > ctx.W )
-        width = ctx.W-x;
-
-    if( y+height > ctx.H )
-        height = ctx.H-y;
-
-
     while( height-- )
     {
         unsigned char* pf = PFB(x,y);
@@ -385,6 +386,8 @@ void gfx_term_render_cursor()
     // Save framebuffer content that is going to be replaced by the cursor and update
     // the new content
     //
+    while( DMA_CHAN0_BUSY ); // Busy wait for DMA
+
     unsigned int* pb = (unsigned int*)ctx.cursor_buffer;
     unsigned int* pfb = (unsigned int*)PFB( ctx.term.cursor_col*8, ctx.term.cursor_row*8 );
     const unsigned int stride = (ctx.Pitch>>2) - 2;
@@ -508,8 +511,8 @@ void gfx_term_set_cursor_visibility( unsigned char visible )
 void gfx_term_move_cursor( unsigned int row, unsigned int col )
 {
     gfx_restore_cursor_content();
-    ctx.term.cursor_row = MIN( ctx.term.HEIGHT-1, row );
-    ctx.term.cursor_col = MIN( ctx.term.WIDTH-1, col );
+    ctx.term.cursor_row = MIN( ctx.term.HEIGHT-1, row>0 ? row-1 : 0 );
+    ctx.term.cursor_col = MIN( ctx.term.WIDTH-1, col>0 ? col-1 : 0 );
 
     gfx_term_render_cursor();
 }
@@ -545,16 +548,18 @@ void gfx_term_restore_cursor()
 void gfx_term_clear_till_end()
 {
     gfx_swap_fg_bg();
-    gfx_fill_rect( (ctx.term.cursor_col+1) * 8, ctx.term.cursor_row*8, ctx.W, 8 );
+    gfx_fill_rect( ctx.term.cursor_col*8, ctx.term.cursor_row*8, ctx.W, 8 );
     gfx_swap_fg_bg();
+    gfx_term_render_cursor();
 }
 
 
 void gfx_term_clear_till_cursor()
 {
     gfx_swap_fg_bg();
-    gfx_fill_rect( 0, ctx.term.cursor_row*8, ctx.term.cursor_col*8, 8 );
+    gfx_fill_rect( 0, ctx.term.cursor_row*8, (ctx.term.cursor_col+1)*8, 8 );
     gfx_swap_fg_bg();
+    gfx_term_render_cursor();
 }
 
 
@@ -637,7 +642,12 @@ void state_fun_final_letter( char ch, scn_state *state )
             break;
 
         case 'K':
-            if( state->cmd_params_size== 1 )
+  	  if( state->cmd_params_size== 0 )
+            {
+	      gfx_term_clear_till_end();
+	      goto back_to_normal;
+ 	    }
+	  else if( state->cmd_params_size== 1 )
             {
                 switch(state->cmd_params[0] )
                 {
@@ -695,24 +705,39 @@ void state_fun_final_letter( char ch, scn_state *state )
             break;
 
         case 'm':
-            if( state->cmd_params_size == 1 && state->cmd_params[0]==0 )
+            if( state->cmd_params_size == 1 )
             {
+	      int p = state->cmd_params[0];
+
+	      if( p==0 )
+		{ gfx_set_bg(0); gfx_set_fg(15); }
+	      else if( p==30 )
+		gfx_set_fg(0);
+	      else if( p>30 && p<=37 )
+		gfx_set_fg(p-22);
+	      else if( p==39 )
+		gfx_set_fg(15);
+              else if( p==40 )
                 gfx_set_bg(0);
-                gfx_set_fg(15);
-                goto back_to_normal;
+              else if( p>40 && p<=47 )
+                gfx_set_bg(p-32);
+	      else if( p==49 )
+		gfx_set_bg(15);
+	      
+	      goto back_to_normal;
             }
             if( state->cmd_params_size == 3 &&
                 state->cmd_params[0]==38    &&
                 state->cmd_params[1]==5 )
             {
-                gfx_set_fg( state->cmd_params[2] );
+  	        gfx_set_fg( state->cmd_params[2] );
                 goto back_to_normal;
             }
             if( state->cmd_params_size == 3 &&
                 state->cmd_params[0]==48    &&
                 state->cmd_params[1]==5 )
             {
-                gfx_set_bg( state->cmd_params[2] );
+  	        gfx_set_bg( state->cmd_params[2] );
                 goto back_to_normal;
             }
             goto back_to_normal;
