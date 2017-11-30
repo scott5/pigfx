@@ -33,7 +33,7 @@ static const char *s_KeyStrings[KeyMaxCode-KeySpace] =
 	"\x1b",			// KeyEscape
 	"\x7f",			// KeyBackspace
 	"\t",			// KeyTabulator
-	"\n",			// KeyReturn
+	"\r",			// KeyReturn
 	"\x1b[2~",		// KeyInsert
 	"\x1b[1~",		// KeyHome
 	"\x1b[5~",		// KeyPageUp
@@ -58,7 +58,7 @@ static const char *s_KeyStrings[KeyMaxCode-KeySpace] =
 	0,			// KeyF12
 	0,			// KeyApplication
 	0,			// KeyCapsLock
-	0,			// KeyPrintScreen
+	"\xff",		        // KeyPrintScreen
 	0,			// KeyScrollLock
 	0,			// KeyPause
 	0,			// KeyNumLock
@@ -66,7 +66,7 @@ static const char *s_KeyStrings[KeyMaxCode-KeySpace] =
 	"*",			// KeyKP_Multiply
 	"-",			// KeyKP_Subtract
 	"+",			// KeyKP_Add
-	"\n",			// KeyKP_Enter
+	"\r",			// KeyKP_Enter
 	"1",			// KeyKP_1
 	"2",			// KeyKP_2
 	"3",			// KeyKP_3
@@ -84,7 +84,9 @@ static const char *s_KeyStrings[KeyMaxCode-KeySpace] =
 
 static const u8 s_DefaultMap[PHY_MAX_CODE+1][K_ALTTAB+1] =
 {
-#if defined (USPI_DEFAULT_KEYMAP_UK)
+#if defined (USPI_DEFAULT_KEYMAP_US)
+        #include "keymap_us.h"
+#elif defined (USPI_DEFAULT_KEYMAP_UK)
 	#include "keymap_uk.h"
 #elif defined (USPI_DEFAULT_KEYMAP_DE)
 	#include "keymap_de.h"
