@@ -1,7 +1,7 @@
 # PiGFX 
 ## Raspberry Pi graphics card / ANSI terminal emulator
 
-This is a clone of https://github.com/fbergama/pigfx
+This is a fork of https://github.com/fbergama/pigfx
 with some changes to work better as a terminal for the Altair emulator
 and in general. The changes are:
 - line and column numbers in ESC[H command start at 1 (not 0)
