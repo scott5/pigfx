@@ -44,21 +44,17 @@ volatile unsigned int last_backspace_t;
 static void _keypress_handler(const char* str )
 {
     const char* c = str;
-    char CR = 13;
+#if ENABLED(SEND_CR_LF)    
+    char CR = 13, LF = 10;
+#endif
 
     while( *c )
     {
          char ch = *c;
          //ee_printf("CHAR 0x%x\n",ch );
 
-#if ENABLED(SEND_CR_LF)
-        if( ch == 10 )
-        {
-            // Send CR first
-            uart_write( &CR, 1 );
-
-        }
-#endif
+	 // special case: print screen clears screen
+	 if( ch == 0xFF ) { gfx_term_putstring("\x1b[2J"); ch = 0; }
 
 #if ENABLED( SWAP_DEL_WITH_BACKSPACE )
         if( ch == 0x7F ) 
@@ -79,8 +75,13 @@ static void _keypress_handler(const char* str )
             last_backspace_t = time_microsec();
         }
 #endif
-        uart_write( &ch, 1 ); 
+        if( ch!=0 ) uart_write( &ch, 1 ); 
         ++c;
+
+#if ENABLED(SEND_CR_LF)
+	if( ch==CR ) uart_write( &LF, 1 );
+#endif
+
     }
 
 } 
@@ -100,7 +101,7 @@ static void _heartbeat_timer_handler( __attribute__((unused)) unsigned hnd,
         led_status = 1;
     }
 
-    attach_timer_handler( HEARTBEAT_FREQUENCY, _heartbeat_timer_handler, 0, 0 );
+    attach_timer_handler( 1000/HEARTBEAT_FREQUENCY, _heartbeat_timer_handler, 0, 0 );
 }
 
 
@@ -359,14 +360,13 @@ void video_line_test()
 
 void term_main_loop()
 {
-    ee_printf("Waiting for UART data (115200,8,N,1)\n");
+    //ee_printf("Waiting for UART data (9600,8,N,1)\n");
 
     /**/
-    while( uart_buffer_start == uart_buffer_end )
-        usleep(100000 );
+    //while( uart_buffer_start == uart_buffer_end ) usleep(100000 );
     /**/
 
-    gfx_term_putstring( "\x1B[2J" );
+    //gfx_term_putstring( "\x1B[2J" );
 
     char strb[2] = {0,0};
 
@@ -419,13 +419,13 @@ void entry_point()
     initialize_framebuffer();
 
     gfx_term_putstring( "\x1B[2J" ); // Clear screen
-    gfx_set_bg(27);
-    gfx_term_putstring( "\x1B[2K" ); // Render blue line at top
-    ee_printf(" ===  PiGFX ===  v.%s\n", PIGFX_VERSION );
-    gfx_term_putstring( "\x1B[2K" );
+    //gfx_set_bg(27);
+    //gfx_term_putstring( "\x1B[2K" ); // Render blue line at top
+    //ee_printf(" ===  PiGFX ===  v.%s\n", PIGFX_VERSION );
+    //gfx_term_putstring( "\x1B[2K" );
     //gfx_term_putstring( "\x1B[2K" ); 
-    ee_printf(" Copyright (c) 2016 Filippo Bergamasco\n\n");
-    gfx_set_bg(0);
+    //ee_printf(" Copyright (c) 2016 Filippo Bergamasco\n\n");
+    //gfx_set_bg(0);
 
     timers_init();
     attach_timer_handler( HEARTBEAT_FREQUENCY, _heartbeat_timer_handler, 0, 0 );
@@ -437,18 +437,18 @@ void entry_point()
 
 
 #if 1
-    ee_printf("Initializing USB\n");
+    //ee_printf("Initializing USB\n");
 
     if( USPiInitialize() )
     {
-        ee_printf("Initialization OK!\n");
-        ee_printf("Checking for keyboards...\n");
+      //ee_printf("Initialization OK!\n");
+      //ee_printf("Checking for keyboards...\n");
 
         if ( USPiKeyboardAvailable () )
         {
             USPiKeyboardRegisterKeyPressedHandler( _keypress_handler );
             gfx_set_fg(10);
-            ee_printf("Keyboard found.\n");
+            //ee_printf("Keyboard found.\n");
             gfx_set_fg(15);
         }
         else
