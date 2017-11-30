@@ -17,6 +17,11 @@ and in general. The changes are:
   a factor of 16, so I changed that (see comment in src/uart.s),
   so this may now not work on a Pi Zero.
 
+For instructions on how to install this on the Raspberry pi, refer
+to the original project: https://github.com/fbergama/pigfx
+
+
+-----
 
 
 The MIT License (MIT)
