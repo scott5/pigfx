@@ -26,6 +26,9 @@ The serial port is on the following pins:
 
 Note that Raspberry Pi pins are 3.3V (not 5V tolerant).
 
+The default baud rate is 115200 8N1. The rate (but not the 8N1
+parameters) can be modified in the config.txt file.
+
 For more detailed instructions refer to the original project: 
 https://github.com/fbergama/pigfx
 
