@@ -7,15 +7,16 @@ and in general. The changes are:
 - line and column numbers in ESC[H command start at 1 (not 0)
 - fixed issue with cursor rendering after clear screen
 - support ESC[K to clear current line after cursor
-- support ESC[mNN where NN=30-38 or 40-48 to change colors
+- fixed ESC[0K (clear current line after cursor)
+- support ESC[NNm where NN=30-38 or 40-48 to change colors
 - support keyboard repeat function
 - keep some empty space at top and bottom of screen
 - enabled internal pull-up resistor on RX line to avoid receiving garbage
   when RX line is not connected
 - use 9600 baud instead of 115200
-- on my Raspberry Pi A the timing calculation in src/uart.s was off by
-  a factor of 16, so I changed that (see comment in src/uart.s),
-  so this may now not work on a Pi Zero.
+- for reasons unknown to me, on both my Raspberry Pi A and Pi Zero the 
+  timing calculation in src/uart.s was off by exactly a factor of 16,
+  so I changed that.
 
 For instructions on how to install this on the Raspberry pi, refer
 to the original project: https://github.com/fbergama/pigfx
