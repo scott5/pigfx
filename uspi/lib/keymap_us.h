@@ -48,11 +48,11 @@
 {'=',		'+',		KeyNone},	// 0x2E
 {'[',		'{',		KeyNone},	// 0x2F
 {']',		'}',		KeyNone},	// 0x30
-{'#',		'~',		KeyNone},	// 0x31
+{'\\',		'|',		KeyNone},	// 0x31
 {'#',		'~',		KeyNone},	// 0x32
 {';',		':',		KeyNone},	// 0x33
 {'\'',		'\"',		KeyNone},	// 0x34
-{'`',		KeyNone,	'|'}	,	// 0x35
+{'`',		'~',	        KeyNone},	// 0x35
 {',',		'<',		KeyNone},	// 0x36
 {'.',		'>',		KeyNone},	// 0x37
 {'/',		'?',		KeyNone},	// 0x38
