@@ -467,6 +467,9 @@ void gfx_term_putstring( const char* str )
                 }
                 break;
 
+            case 0x07:
+	      break; /* skip BELL character */
+
             case 0xC:
                 /* new page */
                 gfx_term_move_cursor(0,0);
