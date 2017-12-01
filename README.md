@@ -4,6 +4,7 @@
 This is a fork of https://github.com/fbergama/pigfx
 with some changes to work better as a terminal for the Altair emulator
 and in general. The changes are:
+- baud rate can be configured without rebuilding by modifying config.txt file
 - line and column numbers in ESC[H command start at 1 (not 0)
 - fixed issue with cursor rendering after clear screen
 - fixed issue with ESC[0K (clear current line after cursor)
@@ -13,14 +14,19 @@ and in general. The changes are:
 - keep some empty space at top and bottom of screen
 - enabled internal pull-up resistor on RX line to avoid receiving garbage
   when RX line is not connected
-- for reasons unknown to me, on both my Raspberry Pi A and Pi Zero the 
-  timing calculation in src/uart.s was off by exactly a factor of 16,
-  so I changed the numbers in uart.s accordingly.
-- use 9600 baud instead of 115200
 
-For instructions on how to install this on the Raspberry pi, refer
-to the original project: https://github.com/fbergama/pigfx
+This should work for a Raspberry Pi A and B and Raspberry Pi Zero.
+To install, simply copy the content of the "bin" directory into the
+root directory of an empty, FAT32 formatted SD card and plug the card
+into the Raspberry Pi.
 
+The serial port is on the following pins:
+TX (out) : GPIO14 (pin 8 of the 2-row GPIO connector)
+RX (in)  : GPIO15 (pin 10 of the 2-row GPIO connector)
+Note that Raspberry Pi pins are 3.3V (not 5V tolerant)
+
+For more detailed instructions refer to the original project: 
+https://github.com/fbergama/pigfx
 
 -----
 
