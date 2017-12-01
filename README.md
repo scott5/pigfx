@@ -21,9 +21,9 @@ root directory of an empty, FAT32 formatted SD card and plug the card
 into the Raspberry Pi.
 
 The serial port is on the following pins:
-TX (out) : GPIO14 (pin 8 of the 2-row GPIO connector)
-RX (in)  : GPIO15 (pin 10 of the 2-row GPIO connector)
-Note that Raspberry Pi pins are 3.3V (not 5V tolerant)
+- TX (out) : GPIO14 (pin 8 of the 2-row GPIO connector)
+- RX (in)  : GPIO15 (pin 10 of the 2-row GPIO connector)
+Note that Raspberry Pi pins are 3.3V (not 5V tolerant).
 
 For more detailed instructions refer to the original project: 
 https://github.com/fbergama/pigfx
