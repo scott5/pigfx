@@ -74,18 +74,6 @@ uart_init:
     mov r0, #0xFFFFFFFF
     str r0, [r3, #0x44]
 
-    ;@ Set BAUD rate by setting the:
-    ;@  DIVIDER = 3000000 / (16*Baud) [[DH: for me: 3000000/Baud]]
-    ;@  FRACTIONAL = (DIVIDER-floor(DIVIDER)) * 64 + 0.5
-    ;@
-    ;@  115200:  D=1,F=40    
-    ;@  9600:    D=19,F=34   D=312,F=32
-	
-    mov r0, #312
-    str r0, [r3, #0x24]  ;@ UART0_IBRD = DIVIDER
-    mov r0, #32
-    str r0, [r3, #0x28]  ;@ UART0_IBRD = FRACTIONAL
-
     ;@ Set 8bit (bit 6-5=1), no parity (bit 7=0), FIFO enable (bit 4=1)
     mov r0, #0x70
     str r0, [r3, #0x2C]  ;@ UART0_LCRH 
