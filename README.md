@@ -15,9 +15,17 @@ and in general. The changes are:
 - enabled internal pull-up resistor on RX line to avoid receiving garbage
   when RX line is not connected
 
-I have tested this on a first generation Raspberry Pi A and a Raspberry Pi Zero.
-It should also work on an A+ and possibly first generation B and B+ (the only possible
-problem I could see on those would be the USB keyboard). I don't know about later generations.
+I have tested this on a first generation Raspberry Pi A and B and a Raspberry Pi Zero.
+It should also work on an A+ and B+. I don't know about later generations and don't 
+have any to test with.
+
+The Pi's HDMI output as well as Composite output work but the Composite signal
+is a bit blurry because of the relatively high resolution used. The Pi does not
+have a VGA output but non-expensive converters exist, such as this:
+https://www.ebay.com/itm/361521797200
+
+A USB keyboard is required since the Pi does not have a PS/2 keyboard connector. 
+Converters exist for that too although I have not tried any.
 
 To install, simply copy the content of the "bin" directory into the
 root directory of an empty, FAT32 formatted SD card and plug the card
