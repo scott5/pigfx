@@ -15,7 +15,10 @@ and in general. The changes are:
 - enabled internal pull-up resistor on RX line to avoid receiving garbage
   when RX line is not connected
 
-This should work for a Raspberry Pi A and B and Raspberry Pi Zero.
+I have tested this on a first generation Raspberry Pi A and a Raspberry Pi Zero.
+It should also work on an A+ and possibly first generation B and B+ (the only possible
+problem I could see on those would be the USB keyboard). I don't know about later generations.
+
 To install, simply copy the content of the "bin" directory into the
 root directory of an empty, FAT32 formatted SD card and plug the card
 into the Raspberry Pi.
