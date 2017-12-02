@@ -20,9 +20,8 @@ It should also work on an A+ and B+. I don't know about later generations and do
 have any to test with.
 
 The Pi's HDMI output as well as Composite output work but the Composite signal
-is a bit blurry because of the relatively high resolution used. The Pi does not
-have a VGA output but non-expensive converters exist, such as this:
-https://www.ebay.com/itm/361521797200
+was a bit blurry when I tested it. The Pi does not have a VGA output but non-expensive 
+converters exist. I have used this with good results: https://www.ebay.com/itm/361521797200
 
 A USB keyboard is required since the Pi does not have a PS/2 keyboard connector. 
 Converters exist for that too although I have not tried any.
