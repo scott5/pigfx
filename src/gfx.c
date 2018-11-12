@@ -3,6 +3,8 @@
 #include "console.h"
 #include "dma.h"
 #include "utils.h"
+#include "uart.h"
+#include <stdio.h>
 
 #define BORDER_TOP_BOTTOM 8
 
@@ -25,6 +27,16 @@ int __abs__( int a )
 {
     return a<0?-a:a;
 }
+
+void b2s(char *b, unsigned char n)
+{
+  *b++ = '0' + n/100;
+  n -= 100*(n/100);
+  *b++ = '0' + n/10;
+  n -= 10*(n/10);
+  *b++ = '0' + n;
+}
+
 
 typedef struct SCN_STATE
 {
@@ -100,6 +112,12 @@ void gfx_set_env( void* p_framebuffer, unsigned int width, unsigned int height, 
     gfx_term_render_cursor();
 }
 
+
+void gfx_term_reset_attrib()
+{
+  gfx_set_bg(0);
+  gfx_set_fg(7);
+}
 
 void gfx_set_bg( GFX_COL col )
 {
@@ -467,15 +485,16 @@ void gfx_term_putstring( const char* str )
                 }
                 break;
 
-            case 0x07:
-	      break; /* skip BELL character */
+   	    case 0x0e: // skip shift out
+	    case 0x0f: // skip shift in
+	    case 0x07: // skip BELL
+	      break;
 
-            case 0xC:
+            case 0x0c:
                 /* new page */
                 gfx_term_move_cursor(0,0);
                 gfx_term_clear_screen();
                 break;
-
 
             default:
                 ctx.term.state.next( *str, &(ctx.term.state) );
@@ -511,24 +530,14 @@ void gfx_term_set_cursor_visibility( unsigned char visible )
 }
 
 
-void gfx_term_move_cursor( unsigned int row, unsigned int col )
+void gfx_term_move_cursor( int row, int col )
 {
     gfx_restore_cursor_content();
-    ctx.term.cursor_row = MIN( ctx.term.HEIGHT-1, row>0 ? row-1 : 0 );
-    ctx.term.cursor_col = MIN( ctx.term.WIDTH-1, col>0 ? col-1 : 0 );
+
+    ctx.term.cursor_row = MIN( ctx.term.HEIGHT-1, row>0 ? row : 0 );
+    ctx.term.cursor_col = MIN( ctx.term.WIDTH-1, col>0 ? col : 0 );
 
     gfx_term_render_cursor();
-}
-
-
-void gfx_term_move_cursor_d( int delta_row, int delta_col )
-{
-    if( (int)ctx.term.cursor_col+delta_col < 0 )
-        delta_col = 0;
-
-    if( (int)ctx.term.cursor_row+delta_row < 0 )
-        delta_row = 0;
-    gfx_term_move_cursor( ctx.term.cursor_row+delta_row, ctx.term.cursor_col+delta_col );
 }
 
 
@@ -550,27 +559,21 @@ void gfx_term_restore_cursor()
 
 void gfx_term_clear_till_end()
 {
-    gfx_swap_fg_bg();
-    gfx_fill_rect( ctx.term.cursor_col*8, ctx.term.cursor_row*8, ctx.W, 8 );
-    gfx_swap_fg_bg();
+    gfx_clear_rect( ctx.term.cursor_col*8, ctx.term.cursor_row*8, ctx.W, 8 );
     gfx_term_render_cursor();
 }
 
 
 void gfx_term_clear_till_cursor()
 {
-    gfx_swap_fg_bg();
-    gfx_fill_rect( 0, ctx.term.cursor_row*8, (ctx.term.cursor_col+1)*8, 8 );
-    gfx_swap_fg_bg();
+    gfx_clear_rect( 0, ctx.term.cursor_row*8, (ctx.term.cursor_col+1)*8, 8 );
     gfx_term_render_cursor();
 }
 
 
 void gfx_term_clear_line()
 {
-    gfx_swap_fg_bg();
-    gfx_fill_rect( 0, ctx.term.cursor_row*8, ctx.W, 8 );
-    gfx_swap_fg_bg();
+    gfx_clear_rect( 0, ctx.term.cursor_row*8, ctx.W, 8 );
     gfx_term_render_cursor();
 }
 
@@ -579,6 +582,18 @@ void gfx_term_clear_screen()
 {
     gfx_clear();
     gfx_term_render_cursor();
+}
+
+
+void gfx_term_clear_lines(int from, int to)
+{
+  if( from<0 ) from = 0;
+  if( to>(int) ctx.term.HEIGHT-1 ) to = ctx.term.HEIGHT-1;
+  if( from<=to ) 
+    {
+      gfx_clear_rect(0, from*8, ctx.W, (to-from+1)*8);
+      gfx_term_render_cursor();
+    }
 }
 
 
@@ -671,85 +686,97 @@ void state_fun_final_letter( char ch, scn_state *state )
             break;
 
         case 'J':
-            if( state->cmd_params_size==1 && state->cmd_params[0] ==2 )
-            {
-                gfx_term_move_cursor(0,0);
+	  {
+	    switch( state->cmd_params_size>=1 ? state->cmd_params[0] : 0 )
+	      {
+	      case 0:
+		gfx_term_clear_lines(ctx.term.cursor_row, ctx.term.HEIGHT-1);
+		break;
+
+	      case 1:
+		gfx_term_clear_lines(0, ctx.term.cursor_row);
+		break;
+
+	      case 2:
+		gfx_term_move_cursor(0, 0);
                 gfx_term_clear_screen();
-            }
+		break;
+	      }
+
             goto back_to_normal;
             break;
+	  }
 
         case 'A':
-            //if( state->cmd_params_size == 1 )
-                gfx_term_move_cursor_d( -state->cmd_params[0], 0 );
-
+	  {
+            int n = state->cmd_params_size > 0 ? state->cmd_params[0] : 1;
+	    gfx_term_move_cursor(MAX(0,(int) ctx.term.cursor_row-n), ctx.term.cursor_col);
             goto back_to_normal;
             break;
+	  }
 
         case 'B':
-            //if( state->cmd_params_size == 1 )
-                gfx_term_move_cursor_d( state->cmd_params[0], 0 );
-
+	  {
+            int n = state->cmd_params_size > 0 ? state->cmd_params[0] : 1;
+	    gfx_term_move_cursor(MIN((int) ctx.term.HEIGHT-1, (int) ctx.term.cursor_row+n), ctx.term.cursor_col);
             goto back_to_normal;
             break;
+	  }
 
         case 'C':
-            //if( state->cmd_params_size == 1 )
-                gfx_term_move_cursor_d( 0, state->cmd_params[0] );
-
+	  {
+            int n = state->cmd_params_size > 0 ? state->cmd_params[0] : 1;
+	    gfx_term_move_cursor(ctx.term.cursor_row, MIN((int) ctx.term.WIDTH-1, (int) ctx.term.cursor_col+n));
             goto back_to_normal;
             break;
+	  }
 
         case 'D':
-            //if( state->cmd_params_size == 1 )
-                gfx_term_move_cursor_d( 0, -state->cmd_params[0] );
-
+	  {
+            int n = state->cmd_params_size > 0 ? state->cmd_params[0] : 1;
+	    gfx_term_move_cursor(ctx.term.cursor_row, MAX(0, (int) ctx.term.cursor_col-n));
             goto back_to_normal;
             break;
+	  }
 
         case 'm':
-            if( state->cmd_params_size == 1 )
-            {
-	      int p = state->cmd_params[0];
+	  {
+	    unsigned int i;
+	    for(i=0; i<state->cmd_params_size; i++)
+	      {
+		if( i+2 < state->cmd_params_size && state->cmd_params[i]==38 && state->cmd_params[i+1]==5 )
+		  { i+=2; ctx.fg = state->cmd_params[i]; }
+                else if( i+2 < state->cmd_params_size && state->cmd_params[i]==48 && state->cmd_params[i+1]==5 )
+		  { i+=2; ctx.bg = state->cmd_params[i]; }
+		else
+		  {
+		    int p = state->cmd_params[i];
+		    if( p==0 )
+		      gfx_term_reset_attrib();
+		    else if( p==1 )
+		      ctx.fg |= 8;
+		    else if( p==2 )
+		      ctx.fg &= 7;
+		    else if( p>=30 && p<=37 )
+		      ctx.fg = (ctx.fg&8) | (p-30);
+		    else if( p==39 )
+		      ctx.fg = 15;
+		    else if( p>=40 && p<=47 )
+		      gfx_set_bg(p-40);
+		    else if( p==49 )
+		      gfx_set_bg(7);
+		  }
+	      }
 
-	      if( p==0 )
-		{ gfx_set_bg(0); gfx_set_fg(15); }
-	      else if( p==30 )
-		gfx_set_fg(0);
-	      else if( p>30 && p<=37 )
-		gfx_set_fg(p-22);
-	      else if( p==39 )
-		gfx_set_fg(15);
-              else if( p==40 )
-                gfx_set_bg(0);
-              else if( p>40 && p<=47 )
-                gfx_set_bg(p-32);
-	      else if( p==49 )
-		gfx_set_bg(15);
-	      
-	      goto back_to_normal;
-            }
-            if( state->cmd_params_size == 3 &&
-                state->cmd_params[0]==38    &&
-                state->cmd_params[1]==5 )
-            {
-  	        gfx_set_fg( state->cmd_params[2] );
-                goto back_to_normal;
-            }
-            if( state->cmd_params_size == 3 &&
-                state->cmd_params[0]==48    &&
-                state->cmd_params[1]==5 )
-            {
-  	        gfx_set_bg( state->cmd_params[2] );
-                goto back_to_normal;
-            }
-            goto back_to_normal;
+	    goto back_to_normal;
             break;
+	  }
 
+        case 'f':
         case 'H':
             if( state->cmd_params_size == 2 )
             {
-                gfx_term_move_cursor( state->cmd_params[0], state->cmd_params[1]);
+                gfx_term_move_cursor(state->cmd_params[0]-1, state->cmd_params[1]-1);
             }
             else
                 gfx_term_move_cursor(0,0);
@@ -765,6 +792,56 @@ void state_fun_final_letter( char ch, scn_state *state )
             gfx_term_restore_cursor();
             goto back_to_normal;
             break;
+
+        case 'n':
+	  {
+	    char buf[20];
+	    if( state->cmd_params_size == 1 )
+	      {
+                if( state->cmd_params[0] == 5 )
+                  {
+		    // query modem type, respond "ESC [?1;Nc" where N is:
+		    // 0: Base VT100, no options
+		    // 1: Preprocessor option (STP)
+		    // 2: Advanced video option (AVO)
+		    // 3: AVO and STP
+		    // 4: Graphics processor option (GO)
+		    // 5: GO and STP
+		    // 6: GO and AVO
+		    // 7: GO, STP, and AVO
+                    buf[0] = '\033';
+                    buf[1] = '?';
+                    buf[2] = '1';
+                    buf[3] = ';';
+                    buf[4] = '0';
+		    buf[5] = 'c';
+		    uart_write(buf, 6);
+                  }
+ 		if( state->cmd_params[0] == 5 )
+		  {
+		    // query modem status (always responde OK)
+                    buf[0] = '\033';
+                    buf[1] = '[';
+		    buf[2] = '0';
+		    buf[3] = 'n';
+		    uart_write(buf, 4);
+ 		  }
+		else if( state->cmd_params[0] == 6 )
+		  {
+		    // query cursor position
+		    buf[0] = '\033';
+		    buf[1] = '[';
+		    b2s(buf+2, (unsigned char) ctx.term.cursor_row+1);
+		    buf[5] = ';';
+		    b2s(buf+6, (unsigned char) ctx.term.cursor_col+1);
+		    buf[9] = 'R';
+		    uart_write(buf, 10);
+		  }
+	      }
+
+	    goto back_to_normal;
+	    break;
+	  }
 
         default:
             goto back_to_normal;
@@ -837,13 +914,19 @@ void state_fun_waitsquarebracket( char ch, scn_state *state )
         state->next = state_fun_selectescape;
         return;
     }
-
-    if( ch==TERM_ESCAPE_CHAR ) // Double ESCAPE prints the ESC character
+    else if( ch==TERM_ESCAPE_CHAR ) // Double ESCAPE prints the ESC character
     {
         gfx_putc( ctx.term.cursor_row, ctx.term.cursor_col, ch );
         ++ctx.term.cursor_col;
         gfx_term_render_cursor();
     }
+    else if( ch=='c' )
+      {
+	// ESC-c resets terminal
+        gfx_term_reset_attrib();
+ 	gfx_term_move_cursor(0,0);
+	gfx_term_clear_screen();
+      }
 
     state->next = state_fun_normaltext;
 }

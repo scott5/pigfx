@@ -449,7 +449,7 @@ void entry_point()
             USPiKeyboardRegisterKeyPressedHandler( _keypress_handler );
             gfx_set_fg(10);
             //ee_printf("Keyboard found.\n");
-            gfx_set_fg(15);
+            gfx_set_fg(7);
         }
         else
         {
@@ -463,5 +463,9 @@ void entry_point()
 #endif
 
     ee_printf("---------\n");
+
+
+    gfx_term_reset_attrib();
+    gfx_set_fg(15);
     term_main_loop();
 }

@@ -56,14 +56,15 @@ extern void gfx_scroll_up( unsigned int npixels );
  */
 extern void gfx_term_putstring( const char* str );
 extern void gfx_term_set_cursor_visibility( unsigned char visible );
-extern void gfx_term_move_cursor( unsigned int row, unsigned int col );
-extern void gfx_term_move_cursor_d( int delta_row, int delta_col );
+extern void gfx_term_move_cursor( int row, int col );
 extern void gfx_term_save_cursor();
 extern void gfx_term_restore_cursor();
 extern void gfx_term_clear_till_end();
 extern void gfx_term_clear_till_cursor();
 extern void gfx_term_clear_line();
+extern void gfx_term_clear_lines(int from, int to);
 extern void gfx_term_clear_screen();
+extern void gfx_term_reset_attrib();
 
 
 #endif
