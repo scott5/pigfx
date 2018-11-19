@@ -77,6 +77,7 @@ typedef struct {
 
     GFX_COL bg;
     GFX_COL fg;
+    unsigned int inverse;
 
     unsigned int cursor_buffer[16];
 
@@ -85,6 +86,14 @@ typedef struct {
 
 static FRAMEBUFFER_CTX ctx;
 unsigned int __attribute__((aligned(0x100))) mem_buff_dma[16];
+
+
+#define MKCOL32(c)    ((c)<<24 | (c)<<16 | (c)<<8 | (c))
+#define GET_BG32(ctx) (ctx.inverse ? MKCOL32(ctx.fg) : MKCOL32(ctx.bg))
+#define GET_FG32(ctx) (ctx.inverse ? MKCOL32(ctx.bg) : MKCOL32(ctx.fg))
+#define GET_BG(ctx)   (ctx.inverse ? ctx.fg : ctx.bg)
+#define GET_FG(ctx)   (ctx.inverse ? ctx.bg : ctx.fg)
+
 
 
 void gfx_term_render_cursor();
@@ -109,6 +118,7 @@ void gfx_set_env( void* p_framebuffer, unsigned int width, unsigned int height, 
 
     ctx.bg = 0;
     ctx.fg = 15;
+    ctx.inverse = 0;
     gfx_term_render_cursor();
 }
 
@@ -117,6 +127,7 @@ void gfx_term_reset_attrib()
 {
   gfx_set_bg(0);
   gfx_set_fg(7);
+  ctx.inverse = 0;
 }
 
 void gfx_set_bg( GFX_COL col )
@@ -133,10 +144,9 @@ void gfx_set_fg( GFX_COL col )
 
 void gfx_swap_fg_bg()
 {
-    GFX_COL aux = ctx.fg;
-    ctx.fg = ctx.bg;
-    ctx.bg = aux;
+    ctx.inverse = !ctx.inverse;
 }
+
 
 void gfx_get_term_size( unsigned int* rows, unsigned int* cols )
 {
@@ -149,7 +159,7 @@ void gfx_clear()
 {
 #if ENABLED(GFX_USE_DMA)
     unsigned int* BG = (unsigned int*)mem_2uncached( mem_buff_dma );
-    *BG = ctx.bg<<24 | ctx.bg<<16 | ctx.bg<<8 | ctx.bg;
+    *BG = GET_BG32(ctx);
     *(BG+1) = *BG;
     *(BG+2) = *BG;
     *(BG+3) = *BG;
@@ -165,7 +175,7 @@ void gfx_clear()
     unsigned char* pf = ctx.pfb;
     unsigned char* pfb_end = pf + ctx.size;
     while(pf < pfb_end)
-        *pf++ = ctx.bg;
+      *pf++ = GET_BG(ctx);
 #endif
 }
 
@@ -173,7 +183,7 @@ void gfx_clear()
 void gfx_scroll_down_dma( unsigned int npixels )
 {
     unsigned int* BG = (unsigned int*)mem_2uncached( mem_buff_dma );
-    *BG = ctx.bg<<24 | ctx.bg<<16 | ctx.bg<<8 | ctx.bg;
+    *BG = GET_BG32(ctx);
     *(BG+1) = *BG;
     *(BG+2) = *BG;
     *(BG+3) = *BG;
@@ -208,7 +218,7 @@ void gfx_scroll_down( unsigned int npixels )
         *pf_dst++ = *pf_src++;
 
     // Fill with bg at the bottom
-    const unsigned int BG = ctx.bg<<24 | ctx.bg<<16 | ctx.bg<<8 | ctx.bg;
+    const unsigned int BG = GET_BG32(ctx);
     while( pf_dst < pfb_end )
         *pf_dst++ = BG;
 
@@ -226,8 +236,9 @@ void gfx_scroll_up( unsigned int npixels )
         *pf_dst-- = *pf_src--;
 
     // Fill with bg at the top
-    const unsigned int BG = ctx.bg<<24 | ctx.bg<<16 | ctx.bg<<8 | ctx.bg;
-    while( pf_dst >= pfb_end )
+    const unsigned int BG = GET_BG32(ctx);
+
+     while( pf_dst >= pfb_end )
         *pf_dst-- = BG;
 }
 
@@ -235,7 +246,7 @@ void gfx_scroll_up( unsigned int npixels )
 void gfx_fill_rect_dma( unsigned int x, unsigned int y, unsigned int width, unsigned int height )
 {
     unsigned int* FG = (unsigned int*)mem_2uncached( mem_buff_dma )+4;
-    *FG = ctx.fg<<24 | ctx.fg<<16 | ctx.fg<<8 | ctx.fg;
+    *FG = GET_FG32(ctx);
     *(FG+1) = *FG;
     *(FG+2) = *FG;
     *(FG+3) = *FG;
@@ -269,7 +280,7 @@ void gfx_fill_rect( unsigned int x, unsigned int y, unsigned int width, unsigned
         const unsigned char* const pfb_end = pf + width;
 
         while( pf < pfb_end )
-            *pf++ = ctx.fg;
+	  *pf++ = GET_FG(ctx);
 
         ++y;
     }
@@ -316,7 +327,7 @@ void gfx_line( int x0, int y0, int x1, int y1 )
         pfb = PFB(y0,x0);
         while(nr--)
         {
-            *pfb = ctx.fg;
+  	    *pfb = GET_FG(ctx);
             error = error - deltay;
             if( error < 0 )
             {
@@ -332,7 +343,7 @@ void gfx_line( int x0, int y0, int x1, int y1 )
         pfb = PFB(x0,y0);
         while(nr--)
         {
-            *pfb = ctx.fg;
+  	    *pfb = GET_FG(ctx);
             error = error - deltay;
             if( error < 0 )
             {
@@ -353,8 +364,8 @@ void gfx_putc( unsigned int row, unsigned int col, unsigned char c )
     if( row >= ctx.term.HEIGHT )
         return;
 
-    const unsigned int FG = ctx.fg<<24 | ctx.fg<<16 | ctx.fg<<8 | ctx.fg;
-    const unsigned int BG = ctx.bg<<24 | ctx.bg<<16 | ctx.bg<<8 | ctx.bg;
+    const unsigned int FG = GET_FG32(ctx);
+    const unsigned int BG = GET_BG32(ctx);
     const unsigned int stride = (ctx.Pitch>>2) - 2;
 
     register unsigned int* p_glyph = (unsigned int*)( FNT + ((unsigned int)c<<6) );
@@ -410,20 +421,26 @@ void gfx_term_render_cursor()
     unsigned int* pfb = (unsigned int*)PFB( ctx.term.cursor_col*8, ctx.term.cursor_row*8 );
     const unsigned int stride = (ctx.Pitch>>2) - 2;
     unsigned int h=8;
+    //const unsigned int FG  = GET_FG32(ctx);
+    //const unsigned int BG  = GET_BG32(ctx);
+    const unsigned int FG  = MKCOL32(ctx.fg);
+    const unsigned int BG  = MKCOL32(ctx.bg);
 
     if( ctx.term.cursor_visible )
-        while(h--)
+      while(h--)
         {
-            *pb++ = *pfb; *pfb = ~*pfb; pfb++;
-            *pb++ = *pfb; *pfb = ~*pfb; pfb++;
-            pfb+=stride;
+	  //*pb++ = *pfb; *pfb = ~*pfb; pfb++;
+	  //*pb++ = *pfb; *pfb = ~*pfb; pfb++;
+	  *pb++ = *pfb; *pfb = *pfb==FG ? BG : (*pfb==FG ? BG : ~*pfb); pfb++;
+	  *pb++ = *pfb; *pfb = *pfb==FG ? BG : (*pfb==FG ? BG : ~*pfb); pfb++;
+	  pfb+=stride;
         }
     else
-        while(h--)
+      while(h--)
         {
-            *pb++ = *pfb++;
-            *pb++ = *pfb++;
-            pfb+=stride;
+	  *pb++ = *pfb++;
+	  *pb++ = *pfb++;
+	  pfb+=stride;
         }
 }
 
@@ -431,7 +448,7 @@ void gfx_term_render_cursor()
 void gfx_term_render_cursor_newline_dma()
 {
     // Fill cursor buffer with the current background and framebuffer with fg
-    unsigned int BG = ctx.bg<<24 | ctx.bg<<16 | ctx.bg<<8 | ctx.bg;
+    unsigned int BG = GET_BG32(ctx);
 
     unsigned int nwords = 16;
     unsigned int* pb = (unsigned int*)ctx.cursor_buffer;
@@ -741,32 +758,41 @@ void state_fun_final_letter( char ch, scn_state *state )
 
         case 'm':
 	  {
-	    unsigned int i;
-	    for(i=0; i<state->cmd_params_size; i++)
+	    if( state->cmd_params_size==0 )
+	      gfx_term_reset_attrib();
+	    else
 	      {
-		if( i+2 < state->cmd_params_size && state->cmd_params[i]==38 && state->cmd_params[i+1]==5 )
-		  { i+=2; ctx.fg = state->cmd_params[i]; }
-                else if( i+2 < state->cmd_params_size && state->cmd_params[i]==48 && state->cmd_params[i+1]==5 )
-		  { i+=2; ctx.bg = state->cmd_params[i]; }
-		else
+		unsigned int i;
+		for(i=0; i<state->cmd_params_size; i++)
 		  {
-		    int p = state->cmd_params[i];
-		    if( p==0 )
-		      gfx_term_reset_attrib();
-		    else if( p==1 )
-		      ctx.fg |= 8;
-		    else if( p==2 )
-		      ctx.fg &= 7;
-		    else if( p>=30 && p<=37 )
-		      ctx.fg = (ctx.fg&8) | (p-30);
-		    else if( p==39 )
-		      ctx.fg = 15;
-		    else if( p>=40 && p<=47 )
-		      gfx_set_bg(p-40);
-		    else if( p==49 )
-		      gfx_set_bg(7);
+		    if( i+2 < state->cmd_params_size && state->cmd_params[i]==38 && state->cmd_params[i+1]==5 )
+		      { i+=2; ctx.fg = state->cmd_params[i]; }
+		    else if( i+2 < state->cmd_params_size && state->cmd_params[i]==48 && state->cmd_params[i+1]==5 )
+		      { i+=2; ctx.bg = state->cmd_params[i]; }
+		    else
+		      {
+			int p = state->cmd_params[i];
+			if( p==0 )
+			  gfx_term_reset_attrib();
+			else if( p==1 )
+			  ctx.fg |= 8;
+			else if( p==2 )
+			  ctx.fg &= 7;
+			else if( p==3 || p==7 )
+			  ctx.inverse = 1;
+			else if( p==27 )
+			  ctx.inverse = 0;
+			else if( p>=30 && p<=37 )
+			  ctx.fg = (ctx.fg&8) | (p-30);
+			else if( p==39 )
+			  ctx.fg = 15;
+			else if( p>=40 && p<=47 )
+			  gfx_set_bg(p-40);
+			else if( p==49 )
+			  gfx_set_bg(7);
+		      }
 		  }
-	      }
+		}
 
 	    goto back_to_normal;
             break;
@@ -774,14 +800,13 @@ void state_fun_final_letter( char ch, scn_state *state )
 
         case 'f':
         case 'H':
-            if( state->cmd_params_size == 2 )
-            {
-                gfx_term_move_cursor(state->cmd_params[0]-1, state->cmd_params[1]-1);
-            }
-            else
-                gfx_term_move_cursor(0,0);
+	  {
+	    int r = state->cmd_params_size<1 ? 1 : state->cmd_params[0];
+            int c = state->cmd_params_size<2 ? 1 : state->cmd_params[1];
+	    gfx_term_move_cursor(r-1, c-1);
             goto back_to_normal;
             break;
+	  }
 
         case 's':
             gfx_term_save_cursor();
@@ -793,33 +818,42 @@ void state_fun_final_letter( char ch, scn_state *state )
             goto back_to_normal;
             break;
 
+        case 'c':
+	  {
+	    if( state->cmd_params_size == 0 || state->cmd_params[0]==0 )
+	      {
+		// according to: https://geoffg.net/Downloads/Terminal/VT100_User_Guide.pdf
+		// query terminal type, respond "ESC [?1;Nc" where N is:
+		// 0: Base VT100, no options
+		// 1: Preprocessor option (STP)
+		// 2: Advanced video option (AVO)
+		// 3: AVO and STP
+		// 4: Graphics processor option (GO)
+		// 5: GO and STP
+		// 6: GO and AVO
+		// 7: GO, STP, and AVO
+		char buf[7];
+		buf[0] = '\033';
+		buf[1] = '[';
+		buf[2] = '?';
+		buf[3] = '1';
+		buf[4] = ';';
+		buf[5] = '0';
+		buf[6] = 'c';
+		uart_write(buf, 7);
+	      }
+	    goto back_to_normal;
+	    break;
+	  }
+
         case 'n':
 	  {
 	    char buf[20];
 	    if( state->cmd_params_size == 1 )
 	      {
-                if( state->cmd_params[0] == 5 )
-                  {
-		    // query modem type, respond "ESC [?1;Nc" where N is:
-		    // 0: Base VT100, no options
-		    // 1: Preprocessor option (STP)
-		    // 2: Advanced video option (AVO)
-		    // 3: AVO and STP
-		    // 4: Graphics processor option (GO)
-		    // 5: GO and STP
-		    // 6: GO and AVO
-		    // 7: GO, STP, and AVO
-                    buf[0] = '\033';
-                    buf[1] = '?';
-                    buf[2] = '1';
-                    buf[3] = ';';
-                    buf[4] = '0';
-		    buf[5] = 'c';
-		    uart_write(buf, 6);
-                  }
  		if( state->cmd_params[0] == 5 )
 		  {
-		    // query modem status (always responde OK)
+		    // query terminal status (always responde OK)
                     buf[0] = '\033';
                     buf[1] = '[';
 		    buf[2] = '0';
@@ -842,6 +876,12 @@ void state_fun_final_letter( char ch, scn_state *state )
 	    goto back_to_normal;
 	    break;
 	  }
+
+        case '?':
+	  {
+            goto back_to_normal;
+            break;
+ 	  }
 
         default:
             goto back_to_normal;
