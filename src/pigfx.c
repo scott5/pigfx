@@ -255,7 +255,7 @@ void video_test()
         {
             usleep(100000);
             col=0;
-            gfx_scroll_up(8);
+            gfx_scroll_up(FONT_HEIGHT);
         }
         ++ch;
         gfx_set_fg( ch );
@@ -278,7 +278,7 @@ void video_test()
                 for(i=0;i<10;++i)
                 {
                     usleep(500000);
-                    gfx_scroll_down(8);
+                    gfx_scroll_down(FONT_HEIGHT);
                     gfx_set_bg( i );
                 }
                 usleep(1000000);
@@ -466,6 +466,6 @@ void entry_point()
 
 
     gfx_term_reset_attrib();
-    gfx_set_fg(15);
+    gfx_set_fg(7);
     term_main_loop();
 }

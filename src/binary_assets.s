@@ -2,4 +2,4 @@
 
 .global G_FONT_GLYPHS
 .align 4
-G_FONT_GLYPHS: .incbin "fonts/font8x8.bin"
+G_FONT_GLYPHS: .incbin "fonts/font8x16.bin"
