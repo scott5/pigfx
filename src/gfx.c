@@ -7,7 +7,20 @@
 #include "ee_printf.h"
 #include <stdio.h>
 
-#define BORDER_TOP_BOTTOM 8
+#if FONT_HEIGHT==8
+#define G_FONT_GLYPHS G_FONT_GLYPHS08
+#elif FONT_HEIGHT==14
+#define G_FONT_GLYPHS G_FONT_GLYPHS14
+#elif FONT_HEIGHT==16
+#define G_FONT_GLYPHS G_FONT_GLYPHS16
+#endif
+
+
+#if (480%FONT_HEIGHT)==0
+#define BORDER_TOP_BOTTOM (FONT_HEIGHT/2)
+#else
+#define BORDER_TOP_BOTTOM ((480%FONT_HEIGHT)/2)
+#endif
 
 extern unsigned char G_FONT_GLYPHS;
 static unsigned char* FNT = &G_FONT_GLYPHS;
