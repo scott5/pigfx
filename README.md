@@ -4,13 +4,11 @@
 This is a fork of https://github.com/fbergama/pigfx
 with some changes to work better as a terminal for the Altair emulator
 and in general. The changes are:
-- baud rate can be configured without rebuilding by modifying config.txt file
-- line and column numbers in ESC[H command start at 1 (not 0)
-- fixed issue with cursor rendering after clear screen
-- fixed issue with ESC[0K (clear current line after cursor)
-- support ESC[K to clear current line after cursor
-- support ESC[NNm where NN=30-38 or 40-48 to change colors
+- baud rate can be configured by modifying config.txt file or pressing F11 at runtime
+- three different font sizes (8/14/16)
+- many improvements to ANSI control sequence support
 - support keyboard repeat function
+- fixed issue with cursor rendering after clear screen
 - keep some empty space at top and bottom of screen
 - enabled internal pull-up resistor on RX line to avoid receiving garbage
   when RX line is not connected
@@ -36,10 +34,27 @@ The serial port is on the following pins:
 
 Note that Raspberry Pi pins are 3.3V (not 5V tolerant).
 
-The default baud rate is 115200 8N1. The rate (but not the 8N1
-parameters) can be modified in the config.txt file.
+### Changing the baud rate
 
-For more detailed instructions refer to the original project: 
+The default baud rate is 115200 8N1. The default rate (but not the 8N1
+parameters) can be modified in the config.txt file. 
+
+At runtime, pressing F11 cycles through baud rates
+(300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200).
+This is temporary, at the next boot the baud rate reverts to the default.
+
+### Changing the font size
+
+The terminal comes with three font sizes: 8x8 (CGA), 8x14 (EGA), 8x16 (VGA).
+The default font size can be set by choosing the corresponding kernel-NN.img file.
+For example, to choose the 8x14 font as default, rename kernel-14.img to kernel.img
+on the SD card.
+
+At runtime, pressing F12 cycles through the three font sizes.
+This is temporary, at the next boot the size reverts to the default.
+
+
+For more instructions refer to the original project: 
 https://github.com/fbergama/pigfx
 
 -----
