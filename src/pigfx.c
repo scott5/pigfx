@@ -41,6 +41,99 @@ volatile unsigned int last_backspace_t;
 #endif
 
 
+char *u2s(unsigned int u)
+{
+  unsigned int i = 1, j = 0;
+  static char buffer[20];
+
+  if( u>=1000000000 )
+    i = 1000000000;
+  else
+    {
+      while( u>=i ) i *= 10;
+      i /= 10;
+    }
+  
+  while( i>0 )
+    {
+      unsigned int d = u/i;
+      buffer[j++] = 48+d;
+      u -= d*i;
+      i = i/10;
+    }
+  
+  buffer[j] = 0;
+  return buffer;
+}
+
+
+/* --------------------------------------------------------------------------------------------------- */
+
+volatile unsigned int *UART0 = (volatile unsigned int *) 0x20201000;
+
+static int baud[] = {300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, -1, -1};
+
+
+static void uart0_setbaud(unsigned int baud)
+{
+  unsigned int divider    = 3000000 / baud;
+  unsigned int f1         = (3000000 % baud) * 64;
+  unsigned int fractional = f1 / baud;
+  if( f1-(fractional*baud) >= baud/2 ) fractional++;
+
+  //unsigned char LCRH = UART0[0x0b];
+  UART0[0x0c] &= ~0x01;        // disable UART
+  UART0[0x0b] &= ~0x10;        // disable FIFO
+  UART0[0x09]  = divider;      // set integer divider
+  UART0[0x0a]  = fractional;   // set fractional divider
+  UART0[0x0b] |= 0x10;         // enable FIFO
+  UART0[0x0c] |= 0x01;         // enable UART
+}
+
+
+static unsigned int uart0_getbaud()
+{
+  unsigned int f = (UART0[0x09]*64) + (UART0[0x0a]&63);
+  unsigned int baud = f==0 ? 0 : (3000000*64) / f;
+  if( (3000000*64)-(baud*f) >= f/2 ) baud++;
+  return baud;
+}
+
+
+static void add_initial_baudrate()
+{
+  int i, j, b = uart0_getbaud();
+
+  for(i=0; baud[i]>0; i++)
+    if( baud[i]>b-b/100 && baud[i]<b+b/100 )
+      return;
+
+  for(j=0; baud[j]>0 && baud[j]<b+b/100; j++);
+  for(i=i; i>j; i--) baud[i] = baud[i-1];
+  baud[i] = b;
+}
+
+
+static void rotate_baudrate()
+{
+  int i, b = uart0_getbaud();
+
+  for(i=0; baud[i]>0 && baud[i]<b+b/100; i++);
+
+  if( baud[i]<0 )
+    i = 0;
+  else if( baud[i]==b )
+    { i++; if( baud[i]<0 ) i = 0; }
+
+  gfx_term_putstring("\r\x1b[2K[Terminal at ");
+  gfx_term_putstring(u2s(baud[i]));
+  gfx_term_putstring(" baud]\n");
+  uart0_setbaud(baud[i]);
+}
+
+/* --------------------------------------------------------------------------------------------------- */
+
+
 static void _keypress_handler(const char* str )
 {
     const char* c = str;
@@ -53,8 +146,13 @@ static void _keypress_handler(const char* str )
          char ch = *c;
          //ee_printf("CHAR 0x%x\n",ch );
 
-	 // special case: print screen clears screen
-	 if( ch == 0xFF ) { gfx_term_putstring("\x1b[2J"); ch = 0; }
+	 // special casees: print screen clears screen, F12 toggles font
+	 if( ch == 0xFF ) 
+	   { gfx_term_putstring("\x1b[2J"); ch = 0; }
+	 else if( ch == 0xFE )
+	   { gfx_toggle_font_height(); ch = 0; }
+	 else if( ch == 0xFD )
+	   { rotate_baudrate(); ch = 0; }
 
 #if ENABLED( SWAP_DEL_WITH_BACKSPACE )
         if( ch == 0x7F ) 
@@ -412,6 +510,7 @@ void entry_point()
     uart_buffer = (volatile char*)nmalloc_malloc( UART_BUFFER_SIZE ); 
     
     uart_init();
+    add_initial_baudrate();
     heartbeat_init();
     
     //heartbeat_loop();
@@ -419,6 +518,7 @@ void entry_point()
     initialize_framebuffer();
 
     gfx_term_putstring( "\x1B[2J" ); // Clear screen
+
     //gfx_set_bg(27);
     //gfx_term_putstring( "\x1B[2K" ); // Render blue line at top
     //ee_printf(" ===  PiGFX ===  v.%s\n", PIGFX_VERSION );

@@ -7,25 +7,11 @@
 #include "ee_printf.h"
 #include <stdio.h>
 
-#if FONT_HEIGHT==8
-#define G_FONT_GLYPHS G_FONT_GLYPHS08
-#elif FONT_HEIGHT==14
-#define G_FONT_GLYPHS G_FONT_GLYPHS14
-#elif FONT_HEIGHT==16
-#define G_FONT_GLYPHS G_FONT_GLYPHS16
-#endif
+extern unsigned char G_FONT_GLYPHS08;
+extern unsigned char G_FONT_GLYPHS14;
+extern unsigned char G_FONT_GLYPHS16;
 
-
-#if (480%FONT_HEIGHT)==0
-#define BORDER_TOP_BOTTOM (FONT_HEIGHT/2)
-#else
-#define BORDER_TOP_BOTTOM ((480%FONT_HEIGHT)/2)
-#endif
-
-extern unsigned char G_FONT_GLYPHS;
-static unsigned char* FNT = &G_FONT_GLYPHS;
-
-// FONT_HEIGHT is configurable in pigfx_config.h but 
+// default FONT_HEIGHT is configurable in pigfx_config.h but 
 // FONT_WIDTH is fixed at 8 for implementation efficiency
 // (one character line fits exactly in two 32-bit integers)
 #define FONT_WIDTH 8
@@ -82,6 +68,10 @@ typedef struct {
     unsigned int size;
     unsigned char* pfb;
 
+    unsigned char *full_pfb;
+    unsigned int full_size;
+    unsigned int full_height;
+ 
     struct
     {
         unsigned int WIDTH;
@@ -98,7 +88,10 @@ typedef struct {
     GFX_COL fg;
     unsigned int inverse;
 
-    unsigned int cursor_buffer[FONT_HEIGHT*2];
+    int            font_height;
+    unsigned char* font_data;
+
+    unsigned int cursor_buffer[32*2];
 
 } FRAMEBUFFER_CTX;
 
@@ -118,27 +111,59 @@ unsigned int __attribute__((aligned(0x100))) mem_buff_dma[16];
 void gfx_term_render_cursor();
 
 
+void gfx_toggle_font_height()
+{
+  if( ctx.font_height == 8 )
+    gfx_set_font_height(14);
+  else if( ctx.font_height == 14 )
+    gfx_set_font_height(16);
+  else
+    gfx_set_font_height(8);
+}
+
+
+void gfx_set_font_height(unsigned int h)
+{
+  int border_top_bottom = (ctx.full_height % h)==0 ? h/2 : (ctx.full_height % h)/2;
+
+  gfx_clear();
+  ctx.font_height = h;
+  switch( h )
+    {
+    case  8: ctx.font_data = &G_FONT_GLYPHS08; break;
+    case 14: ctx.font_data = &G_FONT_GLYPHS14; break;
+    case 16: ctx.font_data = &G_FONT_GLYPHS16; break;
+    }
+
+  ctx.pfb  = ctx.full_pfb + (border_top_bottom*ctx.Pitch);
+  ctx.H    = ctx.full_height - (border_top_bottom*2);
+  ctx.size = ctx.full_size  - (border_top_bottom*2*ctx.Pitch);
+
+  ctx.term.HEIGHT = ctx.H / ctx.font_height;
+  ctx.term.cursor_row = ctx.term.cursor_col = 0;
+  gfx_term_render_cursor();
+}
+
 
 void gfx_set_env( void* p_framebuffer, unsigned int width, unsigned int height, unsigned int pitch, unsigned int size )
 {
     dma_init();
 
-    ctx.pfb = p_framebuffer + (BORDER_TOP_BOTTOM*pitch);
-    ctx.W = width;
-    ctx.H = height - (BORDER_TOP_BOTTOM*2);
-    ctx.Pitch = pitch;
-    ctx.size = size - (BORDER_TOP_BOTTOM*2*pitch);
+    ctx.full_pfb    = p_framebuffer;
+    ctx.full_height = height;
+    ctx.full_size   = size;
+    ctx.W           = width;
+    ctx.Pitch       = pitch;
 
     ctx.term.WIDTH = ctx.W / FONT_WIDTH;
-    ctx.term.HEIGHT= ctx.H / FONT_HEIGHT;
-    ctx.term.cursor_row = ctx.term.cursor_col = 0;
     ctx.term.cursor_visible = 1;
     ctx.term.state.next = state_fun_normaltext;
 
     ctx.bg = 0;
     ctx.fg = 15;
     ctx.inverse = 0;
-    gfx_term_render_cursor();
+
+    gfx_set_font_height(FONT_HEIGHT);
 }
 
 
@@ -387,9 +412,9 @@ void gfx_putc( unsigned int row, unsigned int col, unsigned char c )
     const unsigned int BG = GET_BG32(ctx);
     const unsigned int stride = (ctx.Pitch>>2) - 2;
 
-    register unsigned int* p_glyph = (unsigned int*)( FNT + ((unsigned int)c*FONT_WIDTH*FONT_HEIGHT) );
-    register unsigned int* pf = (unsigned int*)PFB((col*FONT_WIDTH), (row*FONT_HEIGHT));
-    register unsigned char h=FONT_HEIGHT;
+    register unsigned int* p_glyph = (unsigned int*)( ctx.font_data + ((unsigned int)c*FONT_WIDTH*ctx.font_height) );
+    register unsigned int* pf = (unsigned int*)PFB((col*FONT_WIDTH), (row*ctx.font_height));
+    register unsigned char h=ctx.font_height;
 
     while(h--)
     {
@@ -414,9 +439,9 @@ void gfx_restore_cursor_content()
 {
     // Restore framebuffer content that was overwritten by the cursor
     unsigned int* pb = (unsigned int*)ctx.cursor_buffer;
-    unsigned int* pfb = (unsigned int*)PFB( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*FONT_HEIGHT );
+    unsigned int* pfb = (unsigned int*)PFB( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*ctx.font_height );
     const unsigned int stride = (ctx.Pitch>>2) - 2;
-    unsigned int h=FONT_HEIGHT;
+    unsigned int h=ctx.font_height;
     while(h--)
     {
         *pfb++ = *pb++;
@@ -436,9 +461,9 @@ void gfx_term_render_cursor()
 
     unsigned char *p;
     unsigned int* pb = (unsigned int*)ctx.cursor_buffer;
-    unsigned int* pfb = (unsigned int*)PFB( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*FONT_HEIGHT );
+    unsigned int* pfb = (unsigned int*)PFB( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*ctx.font_height );
     const unsigned int stride = (ctx.Pitch>>2)-2;
-    unsigned int h=FONT_HEIGHT;
+    unsigned int h=ctx.font_height;
 
     if( ctx.term.cursor_visible )
       while(h--)
@@ -478,7 +503,7 @@ void gfx_term_render_cursor_newline_dma()
     // Fill cursor buffer with the current background and framebuffer with fg
     unsigned int BG = GET_BG32(ctx);
 
-    unsigned int nwords = FONT_HEIGHT*2;
+    unsigned int nwords = ctx.font_height*2;
     unsigned int* pb = (unsigned int*)ctx.cursor_buffer;
     while( nwords-- )
     {
@@ -486,7 +511,7 @@ void gfx_term_render_cursor_newline_dma()
     }
 
     if( ctx.term.cursor_visible )
-        gfx_fill_rect_dma( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*FONT_HEIGHT, FONT_WIDTH, FONT_HEIGHT );
+        gfx_fill_rect_dma( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*ctx.font_height, FONT_WIDTH, ctx.font_height );
 }
 
 
@@ -525,7 +550,7 @@ void gfx_term_putstring( const char* str )
                 {
                     gfx_restore_cursor_content();
                     --ctx.term.cursor_col;
-                    gfx_clear_rect( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*FONT_HEIGHT, FONT_WIDTH, FONT_HEIGHT );
+                    gfx_clear_rect( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*ctx.font_height, FONT_WIDTH, ctx.font_height );
                     gfx_term_render_cursor();
                 }
                 break;
@@ -559,7 +584,7 @@ void gfx_term_putstring( const char* str )
             gfx_restore_cursor_content();
             --ctx.term.cursor_row;
 
-            gfx_scroll_down_dma(FONT_HEIGHT);
+            gfx_scroll_down_dma(ctx.font_height);
             gfx_term_render_cursor_newline_dma();
             dma_execute_queue();
         }
@@ -604,21 +629,21 @@ void gfx_term_restore_cursor()
 
 void gfx_term_clear_till_end()
 {
-    gfx_clear_rect( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*FONT_HEIGHT, ctx.W, FONT_HEIGHT );
+    gfx_clear_rect( ctx.term.cursor_col*FONT_WIDTH, ctx.term.cursor_row*ctx.font_height, ctx.W, ctx.font_height );
     gfx_term_render_cursor();
 }
 
 
 void gfx_term_clear_till_cursor()
 {
-    gfx_clear_rect( 0, ctx.term.cursor_row*FONT_HEIGHT, (ctx.term.cursor_col+1)*FONT_WIDTH, FONT_HEIGHT );
+    gfx_clear_rect( 0, ctx.term.cursor_row*ctx.font_height, (ctx.term.cursor_col+1)*FONT_WIDTH, ctx.font_height );
     gfx_term_render_cursor();
 }
 
 
 void gfx_term_clear_line()
 {
-    gfx_clear_rect( 0, ctx.term.cursor_row*FONT_HEIGHT, ctx.W, FONT_HEIGHT );
+    gfx_clear_rect( 0, ctx.term.cursor_row*ctx.font_height, ctx.W, ctx.font_height );
     gfx_term_render_cursor();
 }
 
@@ -636,7 +661,7 @@ void gfx_term_clear_lines(int from, int to)
   if( to>(int) ctx.term.HEIGHT-1 ) to = ctx.term.HEIGHT-1;
   if( from<=to ) 
     {
-      gfx_clear_rect(0, from*FONT_HEIGHT, ctx.W, (to-from+1)*FONT_HEIGHT);
+      gfx_clear_rect(0, from*ctx.font_height, ctx.W, (to-from+1)*ctx.font_height);
       gfx_term_render_cursor();
     }
 }

@@ -9,6 +9,8 @@ extern void gfx_set_bg( GFX_COL col );
 extern void gfx_set_fg( GFX_COL col );
 extern void gfx_swap_fg_bg();
 extern void gfx_get_term_size( unsigned int* rows, unsigned int* cols );
+extern void gfx_set_font_height(unsigned int h);
+extern void gfx_toggle_font_height();
 
 /*! 
  * Fills the entire framebuffer with the background color 

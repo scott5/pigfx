@@ -54,8 +54,8 @@ static const char *s_KeyStrings[KeyMaxCode-KeySpace] =
 	"\x1b[19~",		// KeyF8
 	"\x1b[20~",		// KeyF9
 	0,			// KeyF10
-	0,			// KeyF11
-	0,			// KeyF12
+	"\xfd",			// KeyF11
+	"\xfe",			// KeyF12
 	0,			// KeyApplication
 	0,			// KeyCapsLock
 	"\xff",		        // KeyPrintScreen
