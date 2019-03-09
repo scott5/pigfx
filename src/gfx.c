@@ -88,6 +88,8 @@ typedef struct {
     GFX_COL fg;
     unsigned int inverse;
 
+    unsigned int   line_limit;
+
     int            font_height;
     unsigned char* font_data;
 
@@ -107,7 +109,7 @@ unsigned int __attribute__((aligned(0x100))) mem_buff_dma[16];
 #define GET_FG(ctx)   (ctx.inverse ? ctx.bg : ctx.fg)
 
 
-
+extern char *u2s(unsigned int u);
 void gfx_term_render_cursor();
 
 
@@ -122,11 +124,42 @@ void gfx_toggle_font_height()
 }
 
 
-void gfx_set_font_height(unsigned int h)
+void gfx_set_screen_geometry()
 {
-  int border_top_bottom = (ctx.full_height % h)==0 ? h/2 : (ctx.full_height % h)/2;
+  unsigned int lines, border_top_bottom = 0;
+
+  lines = ctx.full_height / ctx.font_height;
+  if( ctx.line_limit>0 && ctx.line_limit < lines ) lines = ctx.line_limit;
+  border_top_bottom = (ctx.full_height-(lines*ctx.font_height))/2;
+  if( ctx.line_limit==0 && border_top_bottom==0 ) border_top_bottom = ctx.font_height/2;
 
   gfx_clear();
+
+  ctx.pfb  = ctx.full_pfb + (border_top_bottom*ctx.Pitch);
+  ctx.H    = ctx.full_height - (border_top_bottom*2);
+  ctx.size = ctx.full_size  - (border_top_bottom*2*ctx.Pitch);
+
+  ctx.term.HEIGHT = ctx.H / ctx.font_height;
+  ctx.term.cursor_row = ctx.term.cursor_col = 0;
+
+  gfx_term_render_cursor();
+}
+
+
+void gfx_toggle_lines()
+{
+  if( ctx.line_limit==0 ) ctx.line_limit = ctx.term.HEIGHT;
+
+  ctx.line_limit--;
+  if( ctx.line_limit<16 ) ctx.line_limit = ctx.full_height/ctx.font_height;
+  
+  gfx_set_screen_geometry();
+  gfx_term_putstring("["); gfx_term_putstring(u2s(ctx.line_limit)); gfx_term_putstring(" lines]\n");
+}
+
+
+void gfx_set_font_height(unsigned int h)
+{
   ctx.font_height = h;
   switch( h )
     {
@@ -135,13 +168,8 @@ void gfx_set_font_height(unsigned int h)
     case 16: ctx.font_data = &G_FONT_GLYPHS16; break;
     }
 
-  ctx.pfb  = ctx.full_pfb + (border_top_bottom*ctx.Pitch);
-  ctx.H    = ctx.full_height - (border_top_bottom*2);
-  ctx.size = ctx.full_size  - (border_top_bottom*2*ctx.Pitch);
-
-  ctx.term.HEIGHT = ctx.H / ctx.font_height;
-  ctx.term.cursor_row = ctx.term.cursor_col = 0;
-  gfx_term_render_cursor();
+  ctx.line_limit = MIN(ctx.line_limit, ctx.full_height/h);
+  gfx_set_screen_geometry();
 }
 
 
@@ -162,6 +190,7 @@ void gfx_set_env( void* p_framebuffer, unsigned int width, unsigned int height, 
     ctx.bg = 0;
     ctx.fg = 15;
     ctx.inverse = 0;
+    ctx.line_limit = SCREEN_LINES;
 
     gfx_set_font_height(FONT_HEIGHT);
 }

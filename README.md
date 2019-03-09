@@ -50,8 +50,27 @@ The default font size can be set by choosing the corresponding kernel-NN.img fil
 For example, to choose the 8x14 font as default, rename kernel-14.img to kernel.img
 on the SD card.
 
+The default kernel.img file in the uses the VGA font.
+
 At runtime, pressing F12 cycles through the three font sizes.
 This is temporary, at the next boot the size reverts to the default.
+
+### Changing the number of lines on the screen
+
+Some software assumes a specific number of lines on screen (often 24)
+and will not work properly if the actual screen differs from that.
+
+By default the terminal will put as many lines on the screen as possbile
+given the selected font size with a small border above and below. 
+For the CGA font that's 59 lines, EGA has 34 and the VGA font has 29 lines.
+
+The number of lines can be changed at runtime by pressing F10. This will
+cycle through starting at the maximum number, going down to 16 and then
+back to maximum.
+
+To change the initial number of lines, change the SCREEN_LINES setting in
+pigfx_config.h.in and re-compile the kernel.
+
 
 
 For more instructions refer to the original project: 
