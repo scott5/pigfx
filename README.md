@@ -2,7 +2,7 @@
 ## Raspberry Pi graphics card / ANSI terminal emulator
 
 This is a fork of https://github.com/fbergama/pigfx
-with some changes to work better as a terminal for the Altair emulator
+with some changes to work better as a terminal for my [Altair emulator](https://www.hackster.io/david-hansel/arduino-altair-8800-simulator-3594a6)
 and in general. The changes are:
 - baud rate can be configured by modifying config.txt file or pressing F11 at runtime
 - three different font sizes (8/14/16)
