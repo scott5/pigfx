@@ -1,6 +1,10 @@
 # PiGFX 
 ## Raspberry Pi graphics card / ANSI terminal emulator
 
+*[If you are looking for a ANSI/VT100 terminal then I recommend taking a look at 
+[VersaTerm](https://github.com/dhansel/VersaTerm) which has better VT100
+support, supports HDMI and VGA monitors and is much easier to configure than this project]*
+
 This is a fork of https://github.com/fbergama/pigfx
 with some changes to work better as a terminal for my [Altair emulator](https://www.hackster.io/david-hansel/arduino-altair-8800-simulator-3594a6)
 and in general. The changes are:
